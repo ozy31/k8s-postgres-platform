@@ -52,6 +52,28 @@ make down    # delete it
   moment in a new cluster next to the original and checks the rows are back.
   On kind this takes about a minute.
 
+## Failover, measured
+
+[`tests/e2e/04-failover.sh`](tests/e2e/04-failover.sh) runs a client that
+inserts a row through the rw pooler every 100 ms, force-deletes the primary
+pod after 20 s, and then compares what the client saw acknowledged with what
+is in the table. A run on the local kind cluster:
+
+```text
+primary:  orders-db-1 -> orders-db-2
+writes:   474 acknowledged, 23 failed
+downtime: 23.6s (longest gap between acknowledged writes)
+lost:     0 acknowledged writes missing after failover
+```
+
+Zero lost writes is the point of quorum commit: every acknowledged
+transaction was already on a standby when the primary disappeared. The
+clients needed no change, because the pooler's service follows the new
+primary. The test fails if any acknowledged write is missing, if writes are
+down for 60 s or more, or if the old primary does not come back as a
+streaming replica. The downtime figure is from kind on a laptop; on a cloud
+cluster it depends on how fast the node or pod loss is detected.
+
 Requires Docker, kind, kubectl and helm. Versions are pinned in
 [`versions.env`](versions.env).
 
