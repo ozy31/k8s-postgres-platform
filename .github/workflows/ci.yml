@@ -45,8 +45,9 @@ jobs:
       - name: Install kind
         run: |
           source versions.env
-          curl -fsSLo kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
-          sudo install kind /usr/local/bin/kind
+          # Not ./kind: that is the cluster config directory.
+          curl -fsSLo "$RUNNER_TEMP/kind" "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+          sudo install "$RUNNER_TEMP/kind" /usr/local/bin/kind
       - name: Cluster, platform and database
         run: make up
       - name: Validate the aks and eks overlays against the real CRDs
