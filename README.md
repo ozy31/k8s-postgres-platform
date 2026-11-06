@@ -12,9 +12,29 @@ failover and restore are tested for real rather than rendered.
 ## Quick start
 
 ```bash
-make up      # kind cluster (3 zones) + cert-manager + CNPG operator + Barman Cloud plugin
+make up      # kind cluster (3 zones), platform operators, orders-db
+make test    # end-to-end tests against the running cluster
 make down    # delete it
 ```
+
+## The database
+
+`orders-db` ([`postgres/base`](postgres/base)) is what a team gets:
+
+- **Three instances, one per zone.** Required anti-affinity on
+  `topology.kubernetes.io/zone`, PodDisruptionBudget on.
+- **Quorum commit.** `ANY 1` of the two standbys must confirm each commit,
+  so losing the primary loses no acknowledged transaction. With
+  `dataDurability: preferred` the primary stays writable if both standbys
+  are down.
+- **Updates by switchover.** Replicas restart first, then the operator
+  switches over to an updated replica, so the primary is never restarted
+  in place.
+- **Separate WAL volume**, data checksums, slow query and lock logging.
+- **Declarative roles and extensions.** A read-only role and
+  `pg_stat_statements` are reconciled by the operator (`managed.roles`, the
+  `Database` resource). Passwords are generated outside git
+  ([`hack/ensure-secret.sh`](hack/ensure-secret.sh)).
 
 Requires Docker, kind, kubectl and helm. Versions are pinned in
 [`versions.env`](versions.env).

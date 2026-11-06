@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: orders
+  labels:
+    team: orders
+    pod-security.kubernetes.io/enforce: restricted

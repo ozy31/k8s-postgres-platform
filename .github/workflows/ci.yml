@@ -33,10 +33,14 @@ jobs:
           source versions.env
           curl -fsSLo kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
           sudo install kind /usr/local/bin/kind
-      - name: Cluster and platform
+      - name: Cluster, platform and database
         run: make up
+      - name: End-to-end tests
+        run: make test
       - name: Dump state on failure
         if: failure()
         run: |
           kubectl get pods -A -o wide
+          kubectl -n orders get cluster,database,backup -o wide || true
+          kubectl -n orders describe cluster orders-db || true
           kubectl -n cnpg-system logs deploy/cnpg-cloudnative-pg --tail=200 || true

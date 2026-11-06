@@ -1,0 +1,15 @@
+# Extensions and database settings are reconciled by the operator too, so a
+# new environment does not depend on someone running CREATE EXTENSION.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: orders-db-orders
+spec:
+  cluster:
+    name: orders-db
+  name: orders
+  owner: orders
+  databaseReclaimPolicy: retain
+  extensions:
+    - name: pg_stat_statements
+      ensure: present

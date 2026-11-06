@@ -1,0 +1,79 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: orders-db
+  labels:
+    team: orders
+    app.kubernetes.io/part-of: orders
+spec:
+  description: Orders service database
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-minimal-trixie
+  instances: 3
+
+  # Rolling updates restart replicas first, then switch over to an updated
+  # replica instead of restarting the primary in place.
+  primaryUpdateStrategy: unsupervised
+  primaryUpdateMethod: switchover
+  enablePDB: true
+
+  # One instance per zone. "required" means a lost zone leaves the third
+  # instance Pending instead of doubling up in a surviving zone; the cluster
+  # keeps serving from the other two (see docs/adr/0002).
+  affinity:
+    enablePodAntiAffinity: true
+    podAntiAffinityType: required
+    topologyKey: topology.kubernetes.io/zone
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 384Mi
+    limits:
+      memory: 384Mi
+
+  storage:
+    size: 2Gi
+  # WAL on its own volume: a burst of WAL cannot fill the data volume, and
+  # the two can be sized and alerted on separately.
+  walStorage:
+    size: 1Gi
+
+  postgresql:
+    # Quorum commit: a transaction is acknowledged once any one of the two
+    # standbys has it. "preferred" keeps the primary writable if both
+    # standbys are gone, trading durability for availability in that
+    # double-failure case only.
+    synchronous:
+      method: any
+      number: 1
+      dataDurability: preferred
+    parameters:
+      shared_buffers: 96MB
+      max_connections: "200"
+      log_min_duration_statement: 500ms
+      log_lock_waits: "on"
+      log_temp_files: "0"
+      idle_in_transaction_session_timeout: 10min
+      # Setting any pg_stat_statements.* parameter makes CNPG add the
+      # library to shared_preload_libraries.
+      pg_stat_statements.max: "10000"
+      pg_stat_statements.track: top
+
+  bootstrap:
+    initdb:
+      database: orders
+      owner: orders
+      dataChecksums: true
+
+  # Roles outside the application owner are declared here and reconciled by
+  # the operator; passwords come from Secrets created outside git.
+  managed:
+    roles:
+      - name: orders_readonly
+        ensure: present
+        login: true
+        connectionLimit: 20
+        inRoles:
+          - pg_read_all_data
+        passwordSecret:
+          name: orders-db-readonly
