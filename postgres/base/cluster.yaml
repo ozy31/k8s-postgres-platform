@@ -38,6 +38,14 @@ spec:
   walStorage:
     size: 1Gi
 
+  # Continuous WAL archiving and base backups through the Barman Cloud
+  # plugin. The ObjectStore itself is per environment (overlays/*).
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: orders-db-backups
+
   postgresql:
     # Quorum commit: a transaction is acknowledged once any one of the two
     # standbys has it. "preferred" keeps the primary writable if both

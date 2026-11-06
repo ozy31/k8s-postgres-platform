@@ -1,0 +1,25 @@
+# Where orders-db sends WAL and base backups in the local environment.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: orders-db-backups
+spec:
+  # Base backups and the WAL needed to restore them are kept for 7 days;
+  # older ones are deleted by the plugin.
+  retentionPolicy: 7d
+  configuration:
+    destinationPath: s3://postgres-backups/
+    endpointURL: http://seaweedfs.object-store.svc:8333
+    s3Credentials:
+      accessKeyId:
+        name: orders-db-backup-s3
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: orders-db-backup-s3
+        key: ACCESS_SECRET_KEY
+    wal:
+      compression: zstd
+      maxParallel: 4
+    data:
+      compression: gzip
+      jobs: 2

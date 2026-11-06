@@ -12,7 +12,7 @@ failover and restore are tested for real rather than rendered.
 ## Quick start
 
 ```bash
-make up      # kind cluster (3 zones), platform operators, orders-db
+make up      # kind cluster (3 zones), operators, local S3, orders-db
 make test    # end-to-end tests against the running cluster
 make down    # delete it
 ```
@@ -41,6 +41,16 @@ make down    # delete it
   poolers, and only the poolers, the other instances and the operator reach
   Postgres. The e2e test checks both the allowed and the blocked paths, and
   that 200 pgbench clients run on at most 50 server connections.
+- **Continuous backup.** The Barman Cloud plugin archives WAL as it is
+  written and takes a base backup every night (and once at creation), with
+  7 days' retention. Locally the target is SeaweedFS's S3 API
+  ([`platform/object-store`](platform/object-store)); keys are generated at
+  install time and never committed.
+- **Point-in-time restore, tested.** The e2e test writes 1000 rows, notes the
+  time, deletes them, then restores
+  [`postgres/restore`](postgres/restore/orders-db-restore.yaml) to that
+  moment in a new cluster next to the original and checks the rows are back.
+  On kind this takes about a minute.
 
 Requires Docker, kind, kubectl and helm. Versions are pinned in
 [`versions.env`](versions.env).
@@ -51,3 +61,5 @@ Requires Docker, kind, kubectl and helm. Versions are pinned in
 | CloudNativePG operator | 1.30.1 |
 | Barman Cloud plugin | 0.15.1 |
 | cert-manager | 1.21.3 |
+| PostgreSQL | 18.6 |
+| SeaweedFS (local S3) | 4.52 |

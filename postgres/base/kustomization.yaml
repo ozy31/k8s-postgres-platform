@@ -7,3 +7,4 @@ resources:
   - database.yaml
   - pooler.yaml
   - networkpolicy.yaml
+  - scheduled-backup.yaml

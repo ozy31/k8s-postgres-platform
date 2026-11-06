@@ -12,8 +12,9 @@ help: ## Show targets
 cluster: ## Create the kind cluster (three zones)
 	@kind get clusters | grep -qx $(CLUSTER) || kind create cluster --config kind/cluster.yaml --image $(KIND_NODE_IMAGE) --wait 2m
 
-platform: ## Install cert-manager, the CNPG operator and the Barman Cloud plugin
+platform: ## Install cert-manager, the CNPG operator, the Barman Cloud plugin and local S3
 	platform/install.sh
+	platform/object-store/install.sh
 
 db: ## Deploy the orders-db Postgres cluster (local overlay)
 	kubectl apply -k postgres/overlays/local
