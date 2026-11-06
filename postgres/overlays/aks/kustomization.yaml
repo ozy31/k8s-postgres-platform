@@ -1,0 +1,46 @@
+# AKS: Premium SSD (managed-csi-premium), Azure Blob backups through
+# workload identity, production sizing.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: orders
+resources:
+  - ../../base
+  - objectstore.yaml
+patches:
+  - target:
+      kind: Cluster
+      name: orders-db
+    patch: |-
+      apiVersion: postgresql.cnpg.io/v1
+      kind: Cluster
+      metadata:
+        name: orders-db
+      spec:
+        # The service account the operator creates for the instances is
+        # federated with the managed identity; the label tells the webhook
+        # to inject the token into every container, the backup sidecar
+        # included.
+        serviceAccountTemplate:
+          metadata:
+            annotations:
+              azure.workload.identity/client-id: 00000000-0000-0000-0000-000000000000
+        inheritedMetadata:
+          labels:
+            azure.workload.identity/use: "true"
+        resources:
+          requests:
+            cpu: "2"
+            memory: 8Gi
+          limits:
+            memory: 8Gi
+        storage:
+          storageClass: managed-csi-premium
+          size: 256Gi
+        walStorage:
+          storageClass: managed-csi-premium
+          size: 64Gi
+        postgresql:
+          parameters:
+            shared_buffers: 2GB
+            effective_cache_size: 6GB
+            max_connections: "400"

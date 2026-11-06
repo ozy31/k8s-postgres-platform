@@ -4,7 +4,7 @@ export
 
 CLUSTER ?= pg-platform
 
-.PHONY: help cluster platform up db test down lint alerts monitoring
+.PHONY: help cluster platform up db test down lint alerts monitoring validate
 
 help: ## Show targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -28,6 +28,12 @@ test: ## Run the end-to-end tests against the running cluster
 
 down: ## Delete the kind cluster
 	kind delete cluster --name $(CLUSTER)
+
+validate: ## Server-side dry run of every overlay against the live CRDs
+	@for o in postgres/overlays/*/; do \
+	  echo "== $$o"; \
+	  kubectl kustomize $$o | kubectl apply --dry-run=server -f - >/dev/null || exit 1; \
+	done
 
 alerts: ## Check and unit-test the alert rules with promtool
 	yq '.spec' postgres/base/prometheusrule.yaml > tests/alerts/rules.generated.yaml

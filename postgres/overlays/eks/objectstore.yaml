@@ -1,0 +1,19 @@
+# S3 through EKS Pod Identity: the association for
+# orders/orders-db grants the role; nothing is annotated or stored here.
+# The bucket has versioning and an Object Lock retention longer than 14d.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: orders-db-backups
+spec:
+  retentionPolicy: 14d
+  configuration:
+    destinationPath: s3://pg-backups-prod-eu-west-1/
+    s3Credentials:
+      inheritFromIAMRole: true
+    wal:
+      compression: zstd
+      maxParallel: 8
+    data:
+      compression: gzip
+      jobs: 4

@@ -1,0 +1,20 @@
+# Azure Blob Storage through workload identity: no storage keys or SAS
+# tokens anywhere. The user-assigned identity needs "Storage Blob Data
+# Contributor" on the container and a federated credential for
+# system:serviceaccount:orders:orders-db.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: orders-db-backups
+spec:
+  retentionPolicy: 14d
+  configuration:
+    destinationPath: https://stpgbackupsprod.blob.core.windows.net/postgres-backups/
+    azureCredentials:
+      inheritFromAzureAD: true
+    wal:
+      compression: zstd
+      maxParallel: 8
+    data:
+      compression: gzip
+      jobs: 4

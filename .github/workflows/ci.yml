@@ -49,6 +49,8 @@ jobs:
           sudo install kind /usr/local/bin/kind
       - name: Cluster, platform and database
         run: make up
+      - name: Validate the aks and eks overlays against the real CRDs
+        run: make validate
       - name: End-to-end tests
         run: make test
       - name: Dump state on failure

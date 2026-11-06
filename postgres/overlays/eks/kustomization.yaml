@@ -1,0 +1,34 @@
+# EKS: gp3 storage, S3 backups through Pod Identity, production sizing.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: orders
+resources:
+  - ../../base
+  - objectstore.yaml
+patches:
+  - target:
+      kind: Cluster
+      name: orders-db
+    patch: |-
+      apiVersion: postgresql.cnpg.io/v1
+      kind: Cluster
+      metadata:
+        name: orders-db
+      spec:
+        resources:
+          requests:
+            cpu: "2"
+            memory: 8Gi
+          limits:
+            memory: 8Gi
+        storage:
+          storageClass: gp3
+          size: 256Gi
+        walStorage:
+          storageClass: gp3
+          size: 64Gi
+        postgresql:
+          parameters:
+            shared_buffers: 2GB
+            effective_cache_size: 6GB
+            max_connections: "400"

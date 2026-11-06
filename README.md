@@ -53,6 +53,28 @@ make down    # delete it
   moment in a new cluster next to the original and checks the rows are back.
   On kind this takes about a minute.
 
+## AKS and EKS
+
+The same base runs in the cloud; only the overlay changes.
+
+| | local | [aks](postgres/overlays/aks) | [eks](postgres/overlays/eks) |
+|---|---|---|---|
+| Backup target | SeaweedFS S3 | Azure Blob | S3 |
+| Credentials | generated key in a Secret | workload identity (federated managed identity) | EKS Pod Identity |
+| Storage class | local-path | `managed-csi-premium` | `gp3` |
+| Sizing | 384Mi, 2Gi + 1Gi WAL | 8Gi, 256Gi + 64Gi WAL | 8Gi, 256Gi + 64Gi WAL |
+| Retention | 7 days | 14 days | 14 days |
+
+No storage keys, SAS tokens or access keys appear in either cloud overlay.
+On AKS the operator-created service account `orders-db` carries the managed
+identity's client ID, and the `azure.workload.identity/use` label is
+inherited by the pods, so the backup sidecar gets the token too. On EKS a
+Pod Identity association for `orders/orders-db` grants the role.
+
+The cloud overlays have not been deployed from this repo. CI does a
+server-side dry run of both against the live CNPG and Barman Cloud CRDs on
+the kind cluster (`make validate`), so schema mistakes fail the build.
+
 ## Monitoring
 
 Each cluster ships its own `PodMonitor`s (Postgres on 9187, PgBouncer on
