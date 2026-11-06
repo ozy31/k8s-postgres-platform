@@ -4,7 +4,7 @@
 source "$(dirname "$0")/lib.sh"
 
 log "waiting for $PG_CLUSTER"
-wait_ready
+wait_ready 10m
 
 log "one instance per zone"
 zones=$(kubectl -n "$NS" get pods -l "cnpg.io/cluster=$PG_CLUSTER,cnpg.io/podRole=instance" \

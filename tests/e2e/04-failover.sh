@@ -12,7 +12,7 @@ client_namespace orders-app orders
 app_pw=$(secret_value "$PG_CLUSTER-app" password)
 rw="host=$PG_CLUSTER-pooler-rw.$NS.svc dbname=orders user=orders"
 
-wait_ready
+wait_ready 10m
 psql_primary -c "drop table if exists failover_check; create table failover_check (id int primary key, at timestamptz default clock_timestamp()); grant all on failover_check to orders;"
 old_primary=$(primary)
 
@@ -42,7 +42,7 @@ kubectl -n orders-app wait "pod/$WRITER" --for=jsonpath='{.status.phase}'=Succee
 kubectl -n orders-app logs "$WRITER" > /tmp/failover-writer.log
 kubectl -n orders-app delete pod "$WRITER" --wait=false >/dev/null
 
-wait_ready
+wait_ready 10m
 new_primary=$(primary)
 
 log "results"
