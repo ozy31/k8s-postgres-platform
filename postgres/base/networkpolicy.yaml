@@ -1,0 +1,69 @@
+# Deny all ingress in the namespace, then open exactly what the cluster
+# needs: replication between instances, poolers to instances, the operator
+# to the instance manager, and clients from the team's namespaces to the
+# poolers only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: orders-db-instances
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: orders-db
+      cnpg.io/podRole: instance
+  policyTypes:
+    - Ingress
+  ingress:
+    # Streaming replication and pg_rewind between instances.
+    - from:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: orders-db
+              cnpg.io/podRole: instance
+      ports:
+        - port: 5432
+    # PgBouncer to Postgres.
+    - from:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: orders-db
+              cnpg.io/podRole: pooler
+      ports:
+        - port: 5432
+    # Operator to the instance manager (status, promotion) and Postgres.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
+      ports:
+        - port: 8000
+        - port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: orders-db-poolers
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: orders-db
+      cnpg.io/podRole: pooler
+  policyTypes:
+    - Ingress
+  ingress:
+    # Any namespace owned by the orders team.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              team: orders
+      ports:
+        - port: 5432

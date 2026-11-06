@@ -5,3 +5,5 @@ resources:
   - namespace.yaml
   - cluster.yaml
   - database.yaml
+  - pooler.yaml
+  - networkpolicy.yaml

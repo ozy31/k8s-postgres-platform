@@ -35,6 +35,12 @@ make down    # delete it
   `pg_stat_statements` are reconciled by the operator (`managed.roles`, the
   `Database` resource). Passwords are generated outside git
   ([`hack/ensure-secret.sh`](hack/ensure-secret.sh)).
+- **PgBouncer in front, and only PgBouncer.** Two `Pooler`s (rw and ro),
+  two pods each in different zones, transaction pooling. NetworkPolicies
+  deny everything else: apps in namespaces labelled `team: orders` reach the
+  poolers, and only the poolers, the other instances and the operator reach
+  Postgres. The e2e test checks both the allowed and the blocked paths, and
+  that 200 pgbench clients run on at most 50 server connections.
 
 Requires Docker, kind, kubectl and helm. Versions are pinned in
 [`versions.env`](versions.env).
