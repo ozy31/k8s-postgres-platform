@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Installs the platform layer: cert-manager, the CloudNativePG operator and
-# the Barman Cloud plugin. Idempotent; safe to run again after a version bump.
+# Installs the platform layer: Prometheus Operator CRDs, cert-manager, the
+# CloudNativePG operator and the Barman Cloud plugin. Idempotent; safe to run again after a version bump.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -18,6 +18,13 @@ helm_install() {
 
 helm repo add jetstack https://charts.jetstack.io --force-update >/dev/null
 helm repo add cnpg https://cloudnative-pg.github.io/charts --force-update >/dev/null
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update >/dev/null
+
+# PodMonitor and PrometheusRule CRDs, so every cluster ships its monitoring
+# with it whether or not a Prometheus is installed yet.
+helm upgrade --install prometheus-operator-crds prometheus-community/prometheus-operator-crds \
+  --version "$PROMETHEUS_OPERATOR_CRDS_CHART_VERSION" \
+  --namespace monitoring --create-namespace --wait
 
 helm_install cert-manager jetstack/cert-manager "$CERT_MANAGER_CHART_VERSION" \
   cert-manager platform/values/cert-manager.yaml

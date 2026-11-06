@@ -1,0 +1,56 @@
+# Small Prometheus + Grafana for local use. CRDs come from the platform
+# layer (prometheus-operator-crds), so the chart does not install them.
+crds:
+  enabled: false
+
+# Pick up PodMonitors and PrometheusRules from every namespace, not just
+# the ones labelled for this Helm release.
+prometheus:
+  prometheusSpec:
+    podMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    retention: 2d
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+
+grafana:
+  admin:
+    existingSecret: grafana-admin
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: postgres
+          folder: Postgres
+          type: file
+          options:
+            path: /var/lib/grafana/dashboards/postgres
+  dashboards:
+    postgres:
+      # Official CloudNativePG dashboard.
+      cloudnative-pg:
+        gnetId: 20417
+        revision: 4
+        datasource: Prometheus
+
+# Not meaningful on kind.
+nodeExporter:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeProxy:
+  enabled: false

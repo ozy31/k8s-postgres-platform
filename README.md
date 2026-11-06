@@ -14,6 +14,7 @@ failover and restore are tested for real rather than rendered.
 ```bash
 make up      # kind cluster (3 zones), operators, local S3, orders-db
 make test    # end-to-end tests against the running cluster
+make alerts  # promtool unit tests for the alert rules
 make down    # delete it
 ```
 
@@ -52,6 +53,33 @@ make down    # delete it
   moment in a new cluster next to the original and checks the rows are back.
   On kind this takes about a minute.
 
+## Monitoring
+
+Each cluster ships its own `PodMonitor`s (Postgres on 9187, PgBouncer on
+9127) and a `PrometheusRule` with 12 alerts
+([`postgres/base/prometheusrule.yaml`](postgres/base/prometheusrule.yaml)):
+instance down, no primary, fewer than two standbys, replication lag, WAL
+archiving stuck, base backup too old or failed, connections near
+`max_connections`, PgBouncer clients waiting, long transactions, XID age, and
+volumes filling up. Every alert links to a runbook.
+
+The rules are unit-tested with `promtool` in CI (`make alerts`,
+[`tests/alerts`](tests/alerts/postgres.test.yaml)), including the cases that
+must *not* fire, such as a standby's archiver looking idle.
+
+Two details that came from running it rather than reading docs:
+
+- With backups going through the Barman Cloud plugin, the operator's own
+  `cnpg_collector_last_available_backup_timestamp` stays at 0. Backup age has
+  to come from the plugin's `barman_cloud_cloudnative_pg_io_*` series, or the
+  backup alert fires forever (or never).
+- kind's local-path volumes publish no `kubelet_volume_stats_*`, so the
+  volume alert can only be exercised by the unit test locally. On AKS (Azure
+  Disk CSI) and EKS (EBS CSI) the series exist.
+
+`make monitoring` installs kube-prometheus-stack with the CloudNativePG
+Grafana dashboard for local use. CI skips it.
+
 ## Failover, measured
 
 [`tests/e2e/04-failover.sh`](tests/e2e/04-failover.sh) runs a client that
@@ -85,3 +113,4 @@ Requires Docker, kind, kubectl and helm. Versions are pinned in
 | cert-manager | 1.21.3 |
 | PostgreSQL | 18.6 |
 | SeaweedFS (local S3) | 4.52 |
+| Prometheus Operator CRDs | 0.95.1 |

@@ -8,3 +8,5 @@ resources:
   - pooler.yaml
   - networkpolicy.yaml
   - scheduled-backup.yaml
+  - podmonitor.yaml
+  - prometheusrule.yaml

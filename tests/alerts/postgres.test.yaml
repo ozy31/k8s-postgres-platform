@@ -1,0 +1,147 @@
+# promtool unit tests for postgres/base/prometheusrule.yaml.
+# Run with: make alerts
+rule_files:
+  - rules.generated.yaml
+
+evaluation_interval: 1m
+
+tests:
+  - name: no primary after the primary disappears
+    interval: 1m
+    input_series:
+      - series: cnpg_pg_replication_in_recovery{namespace="orders", cnpg_cluster="orders-db", pod="orders-db-1"}
+        values: "0 0 0 _ _ _ _ _ _ _"
+      - series: cnpg_pg_replication_in_recovery{namespace="orders", cnpg_cluster="orders-db", pod="orders-db-2"}
+        values: "1x10"
+      - series: cnpg_pg_replication_in_recovery{namespace="orders", cnpg_cluster="orders-db", pod="orders-db-3"}
+        values: "1x10"
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: PostgresNoPrimary
+        exp_alerts: []
+      # Primary series gone at 3m, stale after 5m lookback; pending 1m.
+      - eval_time: 10m
+        alertname: PostgresNoPrimary
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              namespace: orders
+              cnpg_cluster: orders-db
+            exp_annotations:
+              summary: orders-db has no primary
+              runbook_url: https://github.com/ozy31/k8s-postgres-platform/blob/main/docs/runbooks/instance-down.md
+
+  - name: WAL archiving stuck on the primary only
+    interval: 1m
+    input_series:
+      - series: cnpg_pg_stat_archiver_seconds_since_last_archival{namespace="orders", cnpg_cluster="orders-db", pod="orders-db-1"}
+        values: "60+60x30"
+      - series: cnpg_pg_replication_in_recovery{namespace="orders", cnpg_cluster="orders-db", pod="orders-db-1"}
+        values: "0x30"
+      # Standbys never archive; a huge value there must not alert.
+      - series: cnpg_pg_stat_archiver_seconds_since_last_archival{namespace="orders", cnpg_cluster="orders-db", pod="orders-db-2"}
+        values: "99999x30"
+      - series: cnpg_pg_replication_in_recovery{namespace="orders", cnpg_cluster="orders-db", pod="orders-db-2"}
+        values: "1x30"
+    alert_rule_test:
+      - eval_time: 14m
+        alertname: PostgresWALArchivingStuck
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: PostgresWALArchivingStuck
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              namespace: orders
+              cnpg_cluster: orders-db
+              pod: orders-db-1
+            exp_annotations:
+              summary: orders-db has not archived WAL for 26m 0s
+              description: Point-in-time recovery is limited to the last archived segment until this is fixed.
+              runbook_url: https://github.com/ozy31/k8s-postgres-platform/blob/main/docs/runbooks/backup-failing.md
+
+  - name: base backup older than 26 hours
+    interval: 5m
+    input_series:
+      # Last successful backup at t=1h, nothing since.
+      - series: barman_cloud_cloudnative_pg_io_last_available_backup_timestamp{namespace="orders", cnpg_cluster="orders-db", pod="orders-db-1"}
+        values: "3600x400"
+    alert_rule_test:
+      - eval_time: 26h
+        alertname: PostgresBackupTooOld
+        exp_alerts: []
+      - eval_time: 28h
+        alertname: PostgresBackupTooOld
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              namespace: orders
+              cnpg_cluster: orders-db
+            exp_annotations:
+              summary: Newest base backup of orders-db is 1d 3h 0m 0s old
+              runbook_url: https://github.com/ozy31/k8s-postgres-platform/blob/main/docs/runbooks/backup-failing.md
+
+  - name: failed backup after the last good one
+    interval: 1m
+    input_series:
+      - series: barman_cloud_cloudnative_pg_io_last_available_backup_timestamp{namespace="orders", cnpg_cluster="orders-db", pod="orders-db-1"}
+        values: "1000x10"
+      - series: barman_cloud_cloudnative_pg_io_last_failed_backup_timestamp{namespace="orders", cnpg_cluster="orders-db", pod="orders-db-1"}
+        values: "0 0 0 2000x7"
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: PostgresBackupFailed
+        exp_alerts: []
+      - eval_time: 9m
+        alertname: PostgresBackupFailed
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              namespace: orders
+              cnpg_cluster: orders-db
+            exp_annotations:
+              summary: Last base backup of orders-db failed
+              runbook_url: https://github.com/ozy31/k8s-postgres-platform/blob/main/docs/runbooks/backup-failing.md
+
+  - name: connections near max_connections
+    interval: 1m
+    input_series:
+      - series: cnpg_backends_total{namespace="orders", cnpg_cluster="orders-db", pod="orders-db-1", datname="orders", usename="orders", state="active"}
+        values: "100x10"
+      - series: cnpg_backends_total{namespace="orders", cnpg_cluster="orders-db", pod="orders-db-1", datname="orders", usename="orders", state="idle"}
+        values: "70x10"
+      - series: cnpg_pg_settings_setting{namespace="orders", cnpg_cluster="orders-db", pod="orders-db-1", name="max_connections"}
+        values: "200x10"
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: PostgresConnectionsNearLimit
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              namespace: orders
+              cnpg_cluster: orders-db
+              pod: orders-db-1
+            exp_annotations:
+              summary: orders-db-1 is using 85% of max_connections
+              description: Applications should connect through the pooler; check for a client bypassing it.
+              runbook_url: https://github.com/ozy31/k8s-postgres-platform/blob/main/docs/runbooks/connections.md
+
+  - name: one standby lost
+    interval: 1m
+    input_series:
+      - series: cnpg_pg_replication_streaming_replicas{namespace="orders", cnpg_cluster="orders-db", pod="orders-db-1"}
+        values: "2 2 1x20"
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: PostgresStandbyMissing
+        exp_alerts: []
+      - eval_time: 13m
+        alertname: PostgresStandbyMissing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              namespace: orders
+              cnpg_cluster: orders-db
+            exp_annotations:
+              summary: orders-db has 1 streaming standbys
+              runbook_url: https://github.com/ozy31/k8s-postgres-platform/blob/main/docs/runbooks/instance-down.md

@@ -4,7 +4,7 @@ export
 
 CLUSTER ?= pg-platform
 
-.PHONY: help cluster platform up db test down lint
+.PHONY: help cluster platform up db test down lint alerts monitoring
 
 help: ## Show targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -28,6 +28,14 @@ test: ## Run the end-to-end tests against the running cluster
 
 down: ## Delete the kind cluster
 	kind delete cluster --name $(CLUSTER)
+
+alerts: ## Check and unit-test the alert rules with promtool
+	yq '.spec' postgres/base/prometheusrule.yaml > tests/alerts/rules.generated.yaml
+	promtool check rules tests/alerts/rules.generated.yaml
+	promtool test rules tests/alerts/postgres.test.yaml
+
+monitoring: ## Optional: Prometheus + Grafana with the CNPG dashboard (not in CI)
+	monitoring/install.sh
 
 lint: ## yamllint and shellcheck
 	yamllint -s .

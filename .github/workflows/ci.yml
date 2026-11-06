@@ -20,10 +20,24 @@ jobs:
       - name: yamllint and shellcheck
         run: make lint
 
+  alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install promtool
+        run: |
+          source versions.env
+          v=${PROMETHEUS_VERSION}
+          curl -fsSL "https://github.com/prometheus/prometheus/releases/download/v${v}/prometheus-${v}.linux-amd64.tar.gz" |
+            tar -xz --strip-components=1 "prometheus-${v}.linux-amd64/promtool"
+          sudo install promtool /usr/local/bin/promtool
+      - name: Check and unit-test alert rules
+        run: make alerts
+
   e2e:
     # Real cluster, real operator: every change is applied to a three-zone
     # kind cluster, not just rendered.
-    needs: lint
+    needs: [lint, alerts]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
