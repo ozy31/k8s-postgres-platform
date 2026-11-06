@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: yamllint and shellcheck
+        run: make lint
+
+  e2e:
+    # Real cluster, real operator: every change is applied to a three-zone
+    # kind cluster, not just rendered.
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install kind
+        run: |
+          source versions.env
+          curl -fsSLo kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+          sudo install kind /usr/local/bin/kind
+      - name: Cluster and platform
+        run: make up
+      - name: Dump state on failure
+        if: failure()
+        run: |
+          kubectl get pods -A -o wide
+          kubectl -n cnpg-system logs deploy/cnpg-cloudnative-pg --tail=200 || true

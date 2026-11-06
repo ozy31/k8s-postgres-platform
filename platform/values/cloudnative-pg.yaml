@@ -1,0 +1,16 @@
+# Watch every namespace; tenants get their own namespace per database cluster.
+config:
+  clusterWide: true
+  data:
+    # Copy these labels from the Cluster to its pods, services and PVCs so
+    # cost and ownership reports can group by team.
+    INHERITED_LABELS: team, app.kubernetes.io/part-of
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+monitoring:
+  # The PodMonitor CRD only exists once kube-prometheus-stack is installed.
+  podMonitorEnabled: false

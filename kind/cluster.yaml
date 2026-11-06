@@ -1,0 +1,17 @@
+# One control plane and three workers, each labelled with its own zone so
+# that topology spread and anti-affinity behave the way they would on AKS or
+# EKS across three availability zones.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: pg-platform
+nodes:
+  - role: control-plane
+  - role: worker
+    labels:
+      topology.kubernetes.io/zone: zone-a
+  - role: worker
+    labels:
+      topology.kubernetes.io/zone: zone-b
+  - role: worker
+    labels:
+      topology.kubernetes.io/zone: zone-c
