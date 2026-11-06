@@ -136,3 +136,31 @@ Requires Docker, kind, kubectl and helm. Versions are pinned in
 | PostgreSQL | 18.6 |
 | SeaweedFS (local S3) | 4.52 |
 | Prometheus Operator CRDs | 0.95.1 |
+
+## Design decisions
+
+| ADR | Decision |
+|---|---|
+| [0001](docs/adr/0001-cloudnative-pg.md) | CloudNativePG instead of a managed service or a Patroni-based operator |
+| [0002](docs/adr/0002-topology-and-durability.md) | Three zones, `ANY 1` quorum commit, `preferred` durability, required anti-affinity |
+| [0003](docs/adr/0003-pgbouncer-only.md) | PgBouncer in transaction mode as the only way in, and what that breaks |
+| [0004](docs/adr/0004-backups.md) | Barman Cloud plugin; restore beside the original, never over it |
+
+## Runbooks
+
+[`docs/runbooks`](docs/runbooks): one per alert group, plus point-in-time
+restore and major version upgrade procedures.
+
+## Layout
+
+```text
+kind/                 three-zone kind cluster
+platform/             operators (install.sh) and local S3 (object-store/)
+postgres/base/        Cluster, Poolers, Database, NetworkPolicies, backups, monitoring
+postgres/overlays/    local (SeaweedFS), aks (Azure Blob), eks (S3)
+postgres/restore/     point-in-time restore cluster
+monitoring/           optional Prometheus + Grafana for local use
+tests/e2e/            cluster, pooler, backup/restore, failover
+tests/alerts/         promtool unit tests
+docs/                 ADRs and runbooks
+```

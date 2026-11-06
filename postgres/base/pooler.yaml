@@ -17,6 +17,8 @@ spec:
       max_client_conn: "1000"
       default_pool_size: "20"
       reserve_pool_size: "5"
+      # Protocol-level prepared statements in transaction mode.
+      max_prepared_statements: "200"
       server_lifetime: "1800"
       # Queue clients for up to 30s during a failover instead of erroring.
       query_wait_timeout: "30"
