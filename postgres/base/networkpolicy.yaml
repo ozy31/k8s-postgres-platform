@@ -23,20 +23,13 @@ spec:
   policyTypes:
     - Ingress
   ingress:
-    # Streaming replication and pg_rewind between instances.
+    # Any pod of this cluster: other instances (streaming replication,
+    # pg_rewind), the join job that clones a new replica with
+    # pg_basebackup (it has no podRole label), and the PgBouncer poolers.
     - from:
         - podSelector:
             matchLabels:
               cnpg.io/cluster: orders-db
-              cnpg.io/podRole: instance
-      ports:
-        - port: 5432
-    # PgBouncer to Postgres.
-    - from:
-        - podSelector:
-            matchLabels:
-              cnpg.io/cluster: orders-db
-              cnpg.io/podRole: pooler
       ports:
         - port: 5432
 ---
