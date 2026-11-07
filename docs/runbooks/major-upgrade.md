@@ -5,6 +5,12 @@ major: it shuts the cluster down, runs `pg_upgrade` in a job on the primary's
 volume, then recreates the standbys from the upgraded primary. **The
 cluster is unavailable for the duration**; plan a maintenance window.
 
+[`tests/e2e/06-major-upgrade.sh`](../../tests/e2e/06-major-upgrade.sh) runs
+this procedure on every CI build: a two-instance cluster on 17.9 with 10,000
+rows, `imageName` switched to 18.6, then version, a checksum of the data and
+streaming replication are checked. On kind the whole upgrade took 67 s; the
+time grows with the database size (pg_upgrade) and the standby rebuild.
+
 ## Before
 
 1. Read the release notes for removed features and changed defaults.

@@ -131,6 +131,19 @@ reaches 60 s (switchover 30 s), or if the old primary does not come back as
 a streaming replica. Numbers are from kind on a laptop; CI runners are
 slower and show longer gaps.
 
+## Major version upgrade, tested
+
+[`06-major-upgrade.sh`](tests/e2e/06-major-upgrade.sh) rehearses the
+[runbook](docs/runbooks/major-upgrade.md) on a throwaway two-instance
+cluster: PostgreSQL 17.9 with 10,000 rows, `imageName` switched to 18.6, and
+the operator's in-place `pg_upgrade`. It checks the new version, a checksum
+of the data, and that the standby streams again. 67 s on kind.
+
+Running it also caught a NetworkPolicy that only let `orders-db`'s own pods
+replicate, so any other cluster in the namespace (this rehearsal, or a PITR
+restore scaled up to three instances) could never add a standby. The policy
+now covers every CNPG cluster in the namespace.
+
 ## Design decisions
 
 | ADR | Decision |
