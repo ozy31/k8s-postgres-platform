@@ -1,0 +1,58 @@
+# Name of the Cluster; Poolers, Secrets and Services are named after it.
+name: ""
+# Owning team. Namespaces labelled team=<team> may reach the poolers.
+team: ""
+description: ""
+
+image: ghcr.io/cloudnative-pg/postgresql:18.6-minimal-trixie
+instances: 3
+
+database:
+  name: app
+  owner: app
+  extensions:
+    - pg_stat_statements
+
+resources:
+  cpu: 500m
+  memory: 1Gi
+
+storage:
+  size: 10Gi
+  walSize: 4Gi
+  storageClass: ""
+
+# Extra postgresql.conf parameters, merged over the platform defaults.
+parameters: {}
+
+poolers:
+  rw:
+    instances: 2
+    defaultPoolSize: 20
+  ro:
+    enabled: true
+    instances: 2
+    defaultPoolSize: 10
+
+# Read-only login role; its password Secret (<name>-readonly) is created
+# outside the chart (hack/ensure-secret.sh or External Secrets).
+readonlyRole:
+  enabled: true
+
+backup:
+  # local | s3 | azure
+  provider: local
+  retention: 7d
+  schedule: "0 0 2 * * *"
+  # s3: bucket URL, e.g. s3://pg-backups-prod/. azure: container URL.
+  destinationPath: s3://postgres-backups/
+  # local only: SeaweedFS endpoint and the Secret with its keys.
+  endpointURL: http://seaweedfs.object-store.svc:8333
+  credentialsSecret: ""
+  # azure only: client ID of the federated managed identity.
+  azureClientId: ""
+
+monitoring:
+  podMonitors: true
+  # The PrometheusRule is per namespace; enable it for one cluster only.
+  alerts: true

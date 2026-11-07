@@ -1,0 +1,106 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    {{- include "pg.labels" . | nindent 4 }}
+spec:
+  description: {{ .Values.description | default (printf "%s database" .Values.team) | quote }}
+  imageName: {{ .Values.image }}
+  instances: {{ .Values.instances }}
+  primaryUpdateStrategy: unsupervised
+  primaryUpdateMethod: switchover
+  enablePDB: true
+  primaryLease:
+    leaseDurationSeconds: 10
+    renewDeadlineSeconds: 6
+    retryPeriodSeconds: 2
+  affinity:
+    enablePodAntiAffinity: true
+    podAntiAffinityType: required
+    topologyKey: topology.kubernetes.io/zone
+  {{- if eq .Values.backup.provider "azure" }}
+  serviceAccountTemplate:
+    metadata:
+      annotations:
+        azure.workload.identity/client-id: {{ .Values.backup.azureClientId }}
+  inheritedMetadata:
+    labels:
+      azure.workload.identity/use: "true"
+  {{- end }}
+  resources:
+    requests:
+      cpu: {{ .Values.resources.cpu }}
+      memory: {{ .Values.resources.memory }}
+    limits:
+      memory: {{ .Values.resources.memory }}
+  storage:
+    size: {{ .Values.storage.size }}
+    {{- with .Values.storage.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+  walStorage:
+    size: {{ .Values.storage.walSize }}
+    {{- with .Values.storage.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: {{ .Values.name }}-backups
+  postgresql:
+    {{- if gt (int .Values.instances) 1 }}
+    synchronous:
+      method: any
+      number: 1
+      dataDurability: preferred
+    {{- end }}
+    parameters:
+      {{- $defaults := dict
+          "log_min_duration_statement" "500ms"
+          "log_lock_waits" "on"
+          "log_temp_files" "0"
+          "idle_in_transaction_session_timeout" "10min"
+          "pg_stat_statements.max" "10000"
+          "pg_stat_statements.track" "top" }}
+      {{- range $k, $v := merge (deepCopy .Values.parameters) $defaults }}
+      {{ $k }}: {{ $v | toString | quote }}
+      {{- end }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.database.name }}
+      owner: {{ .Values.database.owner }}
+      dataChecksums: true
+  {{- if .Values.readonlyRole.enabled }}
+  managed:
+    roles:
+      - name: {{ .Values.database.name }}_readonly
+        ensure: present
+        login: true
+        connectionLimit: 20
+        inRoles:
+          - pg_read_all_data
+        passwordSecret:
+          name: {{ .Values.name }}-readonly
+  {{- end }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: {{ .Values.name }}-{{ .Values.database.name | replace "_" "-" }}
+  labels:
+    {{- include "pg.labels" . | nindent 4 }}
+spec:
+  cluster:
+    name: {{ .Values.name }}
+  name: {{ .Values.database.name }}
+  owner: {{ .Values.database.owner }}
+  databaseReclaimPolicy: retain
+  {{- with .Values.database.extensions }}
+  extensions:
+    {{- range . }}
+    - name: {{ . }}
+      ensure: present
+    {{- end }}
+  {{- end }}

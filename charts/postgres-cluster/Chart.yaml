@@ -1,0 +1,6 @@
+apiVersion: v2
+name: postgres-cluster
+description: A team's PostgreSQL cluster on the platform, the same shape as orders-db
+type: application
+version: 0.1.0
+appVersion: "18.6"

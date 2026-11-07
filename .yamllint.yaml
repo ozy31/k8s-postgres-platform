@@ -2,6 +2,7 @@ extends: default
 
 ignore: |
   .terraform/
+  charts/*/templates/
 
 rules:
   line-length: disable

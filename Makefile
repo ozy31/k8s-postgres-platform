@@ -4,7 +4,7 @@ export
 
 CLUSTER ?= pg-platform
 
-.PHONY: help cluster platform up db test down lint alerts monitoring validate
+.PHONY: help cluster platform up db test down lint alerts monitoring validate tenant chart
 
 help: ## Show targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -29,11 +29,23 @@ test: ## Run the end-to-end tests against the running cluster
 down: ## Delete the kind cluster
 	kind delete cluster --name $(CLUSTER)
 
-validate: ## Server-side dry run of every overlay against the live CRDs
+validate: chart ## Server-side dry run of every overlay and tenant against the live CRDs
 	@for o in postgres/overlays/*/; do \
 	  echo "== $$o"; \
 	  kubectl kustomize $$o | kubectl apply --dry-run=server -f - >/dev/null || exit 1; \
 	done
+	@for t in tenants/*.yaml; do \
+	  echo "== $$t"; \
+	  helm template x charts/postgres-cluster -n orders -f $$t | kubectl apply -n orders --dry-run=server -f - >/dev/null || exit 1; \
+	done
+
+chart: ## Lint the tenant chart; its alerts must match postgres/base
+	helm lint charts/postgres-cluster -f tenants/payments.yaml
+	@diff <(yq '.spec' postgres/base/prometheusrule.yaml) charts/postgres-cluster/files/alerts.yaml \
+	  || { echo "charts/postgres-cluster/files/alerts.yaml is out of date: yq '.spec' postgres/base/prometheusrule.yaml > charts/postgres-cluster/files/alerts.yaml"; exit 1; }
+
+tenant: ## Onboard tenants/$(TENANT).yaml with the chart
+	hack/tenant.sh $(TENANT)
 
 alerts: ## Check and unit-test the alert rules with promtool
 	yq '.spec' postgres/base/prometheusrule.yaml > tests/alerts/rules.generated.yaml

@@ -53,6 +53,25 @@ make down    # delete it
   moment in a new cluster next to the original and checks the rows are back.
   On kind this takes about a minute.
 
+## Onboarding a team
+
+`orders-db` is written out in plain YAML so every setting is visible. Other
+teams get the same shape from
+[`charts/postgres-cluster`](charts/postgres-cluster) and one values file:
+
+```bash
+make tenant TENANT=payments     # tenants/payments.yaml -> namespace, secrets, helm install
+```
+
+- `values.schema.json` rejects bad input at `helm install` time: names not
+  ending in `-db`, more than five instances, a retention the plugin will not
+  accept, an Azure backup without a client ID.
+- The chart's alert rules are a copy of `postgres/base`'s; `make chart`
+  fails CI if they drift.
+- [`07-tenant.sh`](tests/e2e/07-tenant.sh) onboards `payments` next to
+  `orders` and checks backups run, the team's app reaches its pooler, and
+  neither team can reach the other's database.
+
 ## AKS and EKS
 
 The same base runs in the cloud; only the overlay changes.
@@ -168,7 +187,9 @@ postgres/base/        Cluster, Poolers, Database, NetworkPolicies, backups, moni
 postgres/overlays/    local (SeaweedFS), aks (Azure Blob), eks (S3)
 postgres/restore/     point-in-time restore cluster
 monitoring/           optional Prometheus + Grafana for local use
-tests/e2e/            cluster, pooler, backup/restore, failover, switchover, major upgrade
+charts/               postgres-cluster: the same database for any team, from one values file
+tenants/              one values file per team
+tests/e2e/            cluster, pooler, backup/restore, failover, switchover, major upgrade, tenants
 tests/alerts/         promtool unit tests
 docs/                 ADRs and runbooks
 ```

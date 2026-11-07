@@ -1,0 +1,48 @@
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: {{ .Values.name }}-backups
+  labels:
+    {{- include "pg.labels" . | nindent 4 }}
+spec:
+  retentionPolicy: {{ .Values.backup.retention }}
+  configuration:
+    destinationPath: {{ .Values.backup.destinationPath }}
+    {{- if eq .Values.backup.provider "local" }}
+    endpointURL: {{ .Values.backup.endpointURL }}
+    s3Credentials:
+      accessKeyId:
+        name: {{ .Values.backup.credentialsSecret }}
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: {{ .Values.backup.credentialsSecret }}
+        key: ACCESS_SECRET_KEY
+    {{- else if eq .Values.backup.provider "s3" }}
+    s3Credentials:
+      inheritFromIAMRole: true
+    {{- else if eq .Values.backup.provider "azure" }}
+    azureCredentials:
+      inheritFromAzureAD: true
+    {{- end }}
+    wal:
+      compression: zstd
+      maxParallel: 4
+    data:
+      compression: gzip
+      jobs: 2
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: {{ .Values.name }}-nightly
+  labels:
+    {{- include "pg.labels" . | nindent 4 }}
+spec:
+  cluster:
+    name: {{ .Values.name }}
+  schedule: {{ .Values.backup.schedule | quote }}
+  immediate: true
+  backupOwnerReference: self
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io

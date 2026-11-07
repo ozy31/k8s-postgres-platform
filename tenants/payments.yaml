@@ -1,0 +1,35 @@
+# A team onboarding: one values file, reviewed in a PR.
+#   make tenant TENANT=payments
+name: payments-db
+team: payments
+description: Payments ledger
+
+instances: 2
+database:
+  name: payments
+  owner: payments
+  extensions:
+    - pg_stat_statements
+
+# Kept small so it runs next to orders-db on kind.
+resources:
+  cpu: 100m
+  memory: 384Mi
+storage:
+  size: 1Gi
+  walSize: 1Gi
+
+parameters:
+  shared_buffers: 96MB
+
+poolers:
+  rw:
+    instances: 2
+    defaultPoolSize: 10
+  ro:
+    enabled: false
+
+backup:
+  provider: local
+  retention: 7d
+  credentialsSecret: local-s3-credentials

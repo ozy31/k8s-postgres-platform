@@ -39,7 +39,7 @@ jobs:
     # kind cluster, not just rendered.
     needs: [lint, alerts]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - name: Install kind

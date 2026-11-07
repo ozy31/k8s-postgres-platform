@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["name", "team", "instances", "database", "backup"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z]([-a-z0-9]{0,40}[a-z0-9])?-db$",
+      "description": "Cluster name, ending in -db (the volume alert matches on it)"
+    },
+    "team": { "type": "string", "pattern": "^[a-z][-a-z0-9]{1,30}$" },
+    "instances": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "1 for sandboxes; production needs 3 for quorum commit"
+    },
+    "database": {
+      "type": "object",
+      "required": ["name", "owner"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z_][a-z0-9_]{0,62}$" },
+        "owner": { "type": "string", "pattern": "^[a-z_][a-z0-9_]{0,62}$" },
+        "extensions": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "properties": {
+        "size": { "type": "string", "pattern": "^[0-9]+(Mi|Gi|Ti)$" },
+        "walSize": { "type": "string", "pattern": "^[0-9]+(Mi|Gi|Ti)$" }
+      }
+    },
+    "backup": {
+      "type": "object",
+      "required": ["provider", "retention", "destinationPath"],
+      "properties": {
+        "provider": { "enum": ["local", "s3", "azure"] },
+        "retention": { "type": "string", "pattern": "^[1-9][0-9]*[dwm]$" },
+        "destinationPath": { "type": "string", "pattern": "^(s3://|https://).+/$" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "provider": { "const": "azure" } } },
+          "then": {
+            "required": ["azureClientId"],
+            "properties": { "azureClientId": { "type": "string", "minLength": 36 } }
+          }
+        },
+        {
+          "if": { "properties": { "provider": { "const": "local" } } },
+          "then": {
+            "required": ["credentialsSecret"],
+            "properties": { "credentialsSecret": { "type": "string", "minLength": 1 } }
+          }
+        }
+      ]
+    }
+  }
+}
