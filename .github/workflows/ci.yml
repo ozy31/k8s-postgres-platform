@@ -48,6 +48,12 @@ jobs:
           # Not ./kind: that is the cluster config directory.
           curl -fsSLo "$RUNNER_TEMP/kind" "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
           sudo install "$RUNNER_TEMP/kind" /usr/local/bin/kind
+      - name: Install the kubectl cnpg plugin
+        run: |
+          source versions.env
+          curl -fsSL "https://github.com/cloudnative-pg/cloudnative-pg/releases/download/v${CNPG_PLUGIN_VERSION}/kubectl-cnpg_${CNPG_PLUGIN_VERSION}_linux_x86_64.tar.gz" |
+            tar -xz -C "$RUNNER_TEMP" kubectl-cnpg
+          sudo install "$RUNNER_TEMP/kubectl-cnpg" /usr/local/bin/kubectl-cnpg
       - name: Cluster, platform and database
         run: make up
       - name: Validate the aks and eks overlays against the real CRDs
