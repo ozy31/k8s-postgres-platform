@@ -39,3 +39,20 @@ spec:
               cnpg.io/poolerName: {{ $root.Values.name }}-pooler-{{ $type }}
 {{- end }}
 {{- end }}
+{{- range $type, $p := .Values.poolers }}
+{{- if or (eq $type "rw") $p.enabled }}
+---
+# CNPG creates no PDB for poolers; keep one pod up through node drains.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $root.Values.name }}-pooler-{{ $type }}
+  labels:
+    {{- include "pg.labels" $root | nindent 4 }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: {{ $root.Values.name }}-pooler-{{ $type }}
+{{- end }}
+{{- end }}

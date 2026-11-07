@@ -34,10 +34,25 @@ jobs:
       - name: Check and unit-test alert rules
         run: make alerts
 
+  security:
+    name: trivy config scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Kubernetes manifests, the tenant chart and the workflow itself.
+      - name: trivy config
+        # v0.36.0, pinned by commit SHA
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
   e2e:
     # Real cluster, real operator: every change is applied to a three-zone
     # kind cluster, not just rendered.
-    needs: [lint, alerts]
+    needs: [lint, alerts, security]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

@@ -1,0 +1,22 @@
+# CNPG creates PodDisruptionBudgets for the instances but not for poolers.
+# Without these a node drain can evict both pods of a pooler at once, which
+# is a full outage for every client even though Postgres is fine.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: orders-db-pooler-rw
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: orders-db-pooler-rw
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: orders-db-pooler-ro
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: orders-db-pooler-ro

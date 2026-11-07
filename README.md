@@ -41,7 +41,10 @@ make down    # delete it
   deny everything else: apps in namespaces labelled `team: orders` reach the
   poolers, and only the poolers, the other instances and the operator reach
   Postgres. The e2e test checks both the allowed and the blocked paths, and
-  that 200 pgbench clients run on at most 50 server connections.
+  that 200 pgbench clients run on at most 50 server connections. Each
+  pooler has a PodDisruptionBudget: CNPG creates them for the instances but
+  not for poolers, and without one a node drain can evict both pooler pods
+  at once.
 - **Continuous backup.** The Barman Cloud plugin archives WAL as it is
   written and takes a base backup every night (and once at creation), with
   7 days' retention. Locally the target is SeaweedFS's S3 API
@@ -162,6 +165,17 @@ Running it also caught a NetworkPolicy that only let `orders-db`'s own pods
 replicate, so any other cluster in the namespace (this rehearsal, or a PITR
 restore scaled up to three instances) could never add a standby. The policy
 now covers every CNPG cluster in the namespace.
+
+## Security checks
+
+- `trivy config` scans the manifests, the chart and the workflow on every
+  push and fails on HIGH or CRITICAL findings. It flagged the local
+  SeaweedFS running as root with a writable root filesystem; it now runs as
+  UID 1000, read-only, with all capabilities dropped.
+- Namespaces enforce the `restricted` Pod Security Standard; CNPG instance
+  and pooler pods comply without exceptions.
+- No credentials in git: passwords and the local S3 key are generated at
+  install time, and the cloud overlays use workload identity / Pod Identity.
 
 ## Design decisions
 

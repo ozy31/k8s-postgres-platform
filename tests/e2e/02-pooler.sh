@@ -20,6 +20,12 @@ for p in rw ro; do
   [[ $n == 2 ]] || fail "pooler-$p pods on $n nodes, want 2"
 done
 
+log "each pooler has a PodDisruptionBudget allowing one eviction at a time"
+for p in rw ro; do
+  max=$(kubectl -n "$NS" get pdb "$PG_CLUSTER-pooler-$p" -o jsonpath='{.spec.maxUnavailable}')
+  [[ $max == 1 ]] || fail "pooler-$p PDB maxUnavailable=$max"
+done
+
 log "read-write pooler reaches the primary"
 out=$(client orders-app "$app_pw" psql -qtAX "$rw" -c "
   create table if not exists pooler_check (id int);
