@@ -16,6 +16,15 @@ spec:
   primaryUpdateMethod: switchover
   enablePDB: true
 
+  # A crashed primary cannot release its lease, so a standby may promote only
+  # after the lease expires. 10s instead of the default 15s cuts failover
+  # from ~22s to ~16s; the cost is that a primary which cannot reach the
+  # API server for 6s stops itself (docs/adr/0005).
+  primaryLease:
+    leaseDurationSeconds: 10
+    renewDeadlineSeconds: 6
+    retryPeriodSeconds: 2
+
   # One instance per zone. "required" means a lost zone leaves the third
   # instance Pending instead of doubling up in a surviving zone; the cluster
   # keeps serving from the other two (see docs/adr/0002).

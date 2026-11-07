@@ -102,40 +102,34 @@ Two details that came from running it rather than reading docs:
 `make monitoring` installs kube-prometheus-stack with the CloudNativePG
 Grafana dashboard for local use. CI skips it.
 
-## Failover, measured
+## Failover and switchover, measured
 
 [`tests/e2e/04-failover.sh`](tests/e2e/04-failover.sh) runs a client that
 inserts a row through the rw pooler every 100 ms, force-deletes the primary
-pod after 20 s, and then compares what the client saw acknowledged with what
-is in the table. A run on the local kind cluster:
+pod, and then compares what the client saw acknowledged with what is in the
+table. [`05-switchover.sh`](tests/e2e/05-switchover.sh) does the same with a
+planned `kubectl cnpg promote`, which is what node drains and rolling
+updates do. Runs on the local kind cluster:
 
 ```text
-primary:  orders-db-1 -> orders-db-2
-writes:   474 acknowledged, 23 failed
-downtime: 23.6s (longest gap between acknowledged writes)
-lost:     0 acknowledged writes missing after failover
+failover    downtime: 16.1s   timeline: writes stopped at +2.2s, promotion at +14.9s, writes resumed at +18.3s   lost: 0
+switchover  downtime:  9.8s   timeline: writes stopped at +0.4s, promotion at +4.4s,  writes resumed at +10.2s   lost: 0
 ```
 
 Zero lost writes is the point of quorum commit: every acknowledged
-transaction was already on a standby when the primary disappeared. The
-clients needed no change, because the pooler's service follows the new
-primary. The test fails if any acknowledged write is missing, if writes are
-down for 60 s or more, or if the old primary does not come back as a
-streaming replica. The downtime figure is from kind on a laptop; on a cloud
-cluster it depends on how fast the node or pod loss is detected.
+transaction was already on a standby when the primary disappeared. Clients
+need no change, because the pooler's service follows the new primary.
 
-Requires Docker, kind, kubectl and helm. Versions are pinned in
-[`versions.env`](versions.env).
+Most of a failover is the **primary lease**: a crashed primary cannot
+release it, so the standby waits for it to expire before promoting.
+Shortening it from 15 s to 10 s took failover from 22 s to 16 s;
+[ADR 0005](docs/adr/0005-primary-lease.md) has the timeline, the three
+settings measured, and why not shorter.
 
-| Component | Version |
-|---|---|
-| Kubernetes (kind node) | 1.37.0 |
-| CloudNativePG operator | 1.30.1 |
-| Barman Cloud plugin | 0.15.1 |
-| cert-manager | 1.21.3 |
-| PostgreSQL | 18.6 |
-| SeaweedFS (local S3) | 4.52 |
-| Prometheus Operator CRDs | 0.95.1 |
+The tests fail if any acknowledged write is missing, if failover downtime
+reaches 60 s (switchover 30 s), or if the old primary does not come back as
+a streaming replica. Numbers are from kind on a laptop; CI runners are
+slower and show longer gaps.
 
 ## Design decisions
 
@@ -145,6 +139,7 @@ Requires Docker, kind, kubectl and helm. Versions are pinned in
 | [0002](docs/adr/0002-topology-and-durability.md) | Three zones, `ANY 1` quorum commit, `preferred` durability, required anti-affinity |
 | [0003](docs/adr/0003-pgbouncer-only.md) | PgBouncer in transaction mode as the only way in, and what that breaks |
 | [0004](docs/adr/0004-backups.md) | Barman Cloud plugin; restore beside the original, never over it |
+| [0005](docs/adr/0005-primary-lease.md) | 10 s primary lease: failover 22 s to 16 s, measured |
 
 ## Runbooks
 
@@ -160,7 +155,7 @@ postgres/base/        Cluster, Poolers, Database, NetworkPolicies, backups, moni
 postgres/overlays/    local (SeaweedFS), aks (Azure Blob), eks (S3)
 postgres/restore/     point-in-time restore cluster
 monitoring/           optional Prometheus + Grafana for local use
-tests/e2e/            cluster, pooler, backup/restore, failover
+tests/e2e/            cluster, pooler, backup/restore, failover, switchover, major upgrade
 tests/alerts/         promtool unit tests
 docs/                 ADRs and runbooks
 ```
