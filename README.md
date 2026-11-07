@@ -82,20 +82,28 @@ The same base runs in the cloud; only the overlay changes.
 | | local | [aks](postgres/overlays/aks) | [eks](postgres/overlays/eks) |
 |---|---|---|---|
 | Backup target | SeaweedFS S3 | Azure Blob | S3 |
-| Credentials | generated key in a Secret | workload identity (federated managed identity) | EKS Pod Identity |
+| Backup credentials | generated key in a Secret | workload identity (federated managed identity) | EKS Pod Identity |
+| Role passwords | `hack/ensure-secret.sh` | Key Vault via External Secrets | Secrets Manager via External Secrets |
 | Storage class | local-path | `managed-csi-premium` | `gp3` |
 | Sizing | 384Mi, 2Gi + 1Gi WAL | 8Gi, 256Gi + 64Gi WAL | 8Gi, 256Gi + 64Gi WAL |
 | Retention | 7 days | 14 days | 14 days |
 
-No storage keys, SAS tokens or access keys appear in either cloud overlay.
+No storage keys, SAS tokens, access keys or passwords appear in either
+cloud overlay. Role passwords are `ExternalSecret`s against a
+`ClusterSecretStore` named `platform-secrets`
+([`platform/external-secrets`](platform/external-secrets)); the resulting
+Secret has the same name and shape as the local one, so the `Cluster` spec is
+identical everywhere, and `cnpg.io/reload` makes the operator apply a
+rotated password without a restart.
 On AKS the operator-created service account `orders-db` carries the managed
 identity's client ID, and the `azure.workload.identity/use` label is
 inherited by the pods, so the backup sidecar gets the token too. On EKS a
 Pod Identity association for `orders/orders-db` grants the role.
 
 The cloud overlays have not been deployed from this repo. CI does a
-server-side dry run of both against the live CNPG and Barman Cloud CRDs on
-the kind cluster (`make validate`), so schema mistakes fail the build.
+server-side dry run of both, and of the secret stores, against the live
+CNPG, Barman Cloud and External Secrets CRDs on the kind cluster
+(`make validate`), so schema mistakes fail the build.
 
 ## Monitoring
 

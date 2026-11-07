@@ -1,0 +1,21 @@
+# AKS: External Secrets reads Key Vault as its own workload identity. The
+# identity needs "Key Vault Secrets User" on the vault and a federated
+# credential for system:serviceaccount:external-secrets:external-secrets.
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: platform-secrets
+spec:
+  provider:
+    azurekv:
+      authType: WorkloadIdentity
+      vaultUrl: https://kv-pg-platform-prod.vault.azure.net
+      serviceAccountRef:
+        name: external-secrets
+        namespace: external-secrets
+  # Only database namespaces may read through this store.
+  conditions:
+    - namespaceSelector:
+        matchExpressions:
+          - key: team
+            operator: Exists

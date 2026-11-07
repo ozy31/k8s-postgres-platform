@@ -30,6 +30,11 @@ down: ## Delete the kind cluster
 	kind delete cluster --name $(CLUSTER)
 
 validate: chart ## Server-side dry run of every overlay and tenant against the live CRDs
+	@kubectl get crd externalsecrets.external-secrets.io >/dev/null 2>&1 || \
+	  kubectl apply --server-side -f https://raw.githubusercontent.com/external-secrets/external-secrets/$(EXTERNAL_SECRETS_VERSION)/deploy/crds/bundle.yaml >/dev/null
+	@for f in platform/external-secrets/*.yaml; do \
+	  echo "== $$f"; kubectl apply --dry-run=server -f $$f >/dev/null || exit 1; \
+	done
 	@for o in postgres/overlays/*/; do \
 	  echo "== $$o"; \
 	  kubectl kustomize $$o | kubectl apply --dry-run=server -f - >/dev/null || exit 1; \

@@ -5,6 +5,7 @@ namespace: orders
 resources:
   - ../../base
   - objectstore.yaml
+  - readonly-secret.yaml
 patches:
   - target:
       kind: Cluster
